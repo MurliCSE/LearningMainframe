@@ -1,0 +1,262 @@
+   File  Edit  Edit_Settings  Menu  Utilities  Compilers  Test  Help            
+ -------------------------------------------------------------------------------
+ VIEW       ABCD.EFGH.IJKL(BRANCH) - 01.05                 Columns 00001 00072 
+ Command ===>                                                  Scroll ===> CSR  
+ ****** ***************************** Top of Data ******************************
+ 000001 ISREDIT MACRO (HELP)                                                    
+ 000002 ISPEXEC CONTROL ERRORS RETURN                                           
+ 000003 /**** SET MESSAGE DISPLAY ON/OFF BASED ON THE DEBUG SWITCH ***/         
+ 000004 ISPEXEC VGET (DBGSWTCH) PROFILE                                         
+ 000005 IF &DBGSWTCH = &STR(ON) THEN +                                          
+ 000006   CONTROL MSG LIST CONLIST SYMLIST NOFLUSH                              
+ 000007 ELSE CONTROL NOMSG NOLIST NOFLUSH NOPROMPT                              
+ 000008 IF &HELP = &STR(HELP) THEN GOTO HELPSEC                                 
+ 000009 /********************************************************************** 
+ 000010 /* UTILITY: BRANCH                                                    * 
+ 000011 /* AUTHOR: Abc xyZ                                                 * 
+ 000012 /* FUNCTION: BRANCH TO PARAGRAPHS/SECTIONS BASED ON PERFORM AND GOTO  * 
+ 000013 /*           STATEMENTS.  THIS EDIT MACRO WORKS IN CONJUNCTION WITH   * 
+ 000014 /*           EDIT MACRO BRANCHBK WHICH TAKES YOU BACK TO WHERE YOU    * 
+ 000015 /*           WERE.                                                    * 
+ 000016 /********************************************************************** 
+ 000017                                                                         
+ 000018 /**********************************************************************  
+ 000019 /* WHAT EDIT PROFILE NUMBERING SCHEME IS BEING USED?                  * 
+ 000020 /********************************************************************** 
+ 000021 ISREDIT (X,Y) = NUMBER                                                  
+ 000022 IF &X = ON AND &SYSINDEX(&STR( COBOL),&STR(&Y)) > 0 THEN +              
+ 000023     DO                                                                  
+ 000024         SET COL1 = 1                                                    
+ 000025         SET COL2 = 66                                                   
+ 000026     END                                                                 
+ 000027 ELSE +                                                                  
+ 000028     DO                                                                  
+ 000029         SET COL1 = 7                                                    
+ 000030         SET COL2 = 72                                                   
+ 000031     END                                                                 
+ 000032                                                                         
+ 000033 /********************************************************************** 
+ 000034 /* IF WE'RE BEFORE THE PROCEDURE DIVISION, JUST GO THERE AND RESET    * 
+ 000035 /* THE BRANCH LEVEL TO 0.                                             * 
+ 000036 /********************************************************************** 
+ 000037 ISREDIT FIND ' PROCEDURE ' &COL1 &EVAL(&COL1 + 10 + 3)   
+ 000038 IF &LASTCC > 0 THEN GOTO FIND_VERB                                      
+ 000039                                                                         
+ 000040 /*** LET'S ONLY LOG THE INITIAL BRANCH! ***/                            
+ 000041                                                                         
+ 000042 ISREDIT (LINE,CL) = CURSOR                                              
+ 000043 ISREDIT (X,Y) = DISPLAY_LINES                                           
+ 000044 ISREDIT LABEL &X = .X                                                   
+ 000045 ISREDIT LABEL &Y = .Y                                                   
+ 000046 ISREDIT FIND FIRST ' GO ' &COL1 &COL2 .X .Y                             
+ 000047 ISREDIT (GOTO,NULL) = CURSOR                                            
+ 000048 ISREDIT FIND FIRST ' PERFORM ' &COL1 &COL2 .X .Y                        
+ 000049 ISREDIT (PERFORM,NULL) = CURSOR                                         
+ 000050 ISREDIT FIND FIRST ' EXIT. ' &COL1 &COL2 .X .Y                          
+ 000051 IF &LASTCC > 0 THEN SET EXIT = &Y                                       
+ 000052 ELSE ISREDIT (EXIT,NULL) = CURSOR                                       
+ 000053 SET X = &LINE                                                           
+ 000054 IF &PERFORM > &LINE AND +                                               
+ 000055    &PERFORM < &EXIT THEN +                                              
+ 000056     SET X = &PERFORM                                                    
+ 000057 IF (&GOTO > &LINE AND +                                                 
+ 000058     &GOTO < &EXIT) AND +                                                
+ 000059    ((&PERFORM > &LINE AND +                                             
+ 000060      &GOTO < &PERFORM) OR +                                             
+ 000061     (&PERFORM = &LINE)) THEN +                                          
+ 000062     SET X = &GOTO                                                       
+ 000063 ISREDIT LOCATE .X                                                       
+ 000064 ISREDIT CURSOR = &X 1                                                   
+ 000065 SET BCHLVL = &STR(0)                                                    
+ 000066 ISPEXEC VPUT BCHLVL SHARED                                              
+ 000067 EXIT                                                                    
+ 000068                                                                         
+ 000069 /********************************************************************** 
+ 000070 /* LOOK FOR THE PERFORM OR GO TO AND PARSE THE LINE.                  * 
+ 000071 /********************************************************************** 
+ 000072 FIND_VERB: +                                                            
+ 000073 SET TYPE = PERFORM                                                      
+ 000074 ISREDIT FIND FIRST ' PERFORM ' &COL1 &COL2 .ZCSR .ZCSR                  
+ 000075                                                                         
+ 000076 IF &LASTCC > 0 THEN +                                                   
+ 000077     DO                                                                  
+ 000078         SET TYPE = GOTO                                                 
+ 000079         ISREDIT FIND FIRST ' GO ' &COL1 &COL2 .ZCSR .ZCSR               
+ 000080         IF &LASTCC = 0 THEN +                                           
+ 000081             DO                                                          
+ 000082                 ISREDIT FIND NEXT ' TO ' &COL1 &COL2 .ZCSR .ZCSR        
+ 000083                 IF &LASTCC = 0 THEN GOTO PARSE_FOR_NAME                 
+ 000084             END                                                         
+ 000085         SET ZEDSMSG = &STR("PERFORM"&" GO TO" MISSING)                  
+ 000086         ISPEXEC SETMSG MSG(UTLZ001)                                     
+ 000087         GOTO FINISH                                                     
+ 000088     END                                                                 
+ 000089                                                                         
+ 000090 /********************************************************************** 
+ 000091 /* FIND THE NAME OF THE SECTION OR PARAGRAPH TO BRANCH TO.            * 
+ 000092 /********************************************************************** 
+ 000093 PARSE_FOR_NAME: +                                                       
+ 000094 SET ZEDLMSG =                                                           
+ 000095 ISREDIT FIND NEXT P'*' &COL1 &COL2 .ZCSR .ZCSR                          
+ 000096 IF &LASTCC > 0 THEN SET ZEDLMSG = &STR(PARAGRAPH/SECTION NAME NEEDS TO +
+ 000097                                        BE ON THE SAME LINE AS THE +     
+ 000098                                        "&TYPE")                         
+ 000099 ISREDIT FIND NEXT P' ' &COL1 &COL2 .ZCSR .ZCSR                          
+ 000100 IF &LASTCC > 0 THEN SET ZEDLMSG = &STR(PARAGRAPH/SECTION NAME NEEDS TO +
+ 000101                                        BE ON THE SAME LINE AS THE +     
+ 000102                                        "&TYPE")                         
+ 000103 ISREDIT FIND NEXT P'*' &COL1 &COL2 .ZCSR .ZCSR                          
+ 000104 IF &LASTCC > 0 THEN SET ZEDLMSG = &STR(PARAGRAPH/SECTION NAME NEEDS TO +
+ 000105                                        BE ON THE SAME LINE AS THE +     
+ 000106                                        "&TYPE")                         
+ 000107 ISREDIT (NULL,COLBEGIN) = CURSOR                                        
+ 000108 SET COLBEGIN = &COLBEGIN + 1                                            
+ 000109 ISREDIT FIND NEXT C' ' &COL1 &COL2 .ZCSR .ZCSR                          
+ 000110 IF &LASTCC > 0 THEN SET COLEND = &COL2                                  
+ 000111 ELSE ISREDIT (NULL,COLEND) = CURSOR                                     
+ 000112 SET COLEND = &COLEND - 1                                                
+ 000113                                                                         
+ 000114 /**********************************************************************/
+ 000115 /* ISREDIT FIND FIRST '.' &COLEND &COLEND .ZCSR .ZCSR                 */
+ 000116 /* IF &LASTCC = 0 THEN SET COLEND = &COLEND - 1                       */
+ 000117 /**********************************************************************/
+ 000118 ISREDIT (VERBLINE) = LINE .ZCSR                                         
+ 000119 SET SECPARA = &SUBSTR(&COLBEGIN:&COLEND,&STR(&VERBLINE))                
+ 000120 /* WRITE SECPARA = &SECPARA  COLBEGIN = &COLBEGIN  COLEND = &COLEND     
+ 000121 SET VERBLINE = &SUBSTR(1:&COL2,&STR(&SYSNSUB(1,&VERBLINE)))             
+ 000122                                                                         
+ 000123 /********************************************************************** 
+ 000124 /* SAVE THE "VERB" LINE AND THE FIRST "DISPLAYED" LINE                * 
+ 000125 /********************************************************************** 
+ 000126 ISREDIT (DISPLINE,NULL) = DISPLAY_LINES                                 
+ 000127 ISREDIT (CURRLINE) = LINENUM .ZCSR                                      
+ 000128 SET DISPLINE = &CURRLINE - &DISPLINE - 1                                
+ 000129                                                                         
+ 000130 SET TEMPLINE = 0                                                        
+ 000131 SET X = 1                                                               
+ 000132 /* ISREDIT FIND FIRST '&STR(&VERBLINE)'                                 
+ 000133 /* ISREDIT FIND FIRST '&STR(&VERBLINE)' 8                               
+ 000134 ISREDIT FIND FIRST '&STR(&SECPARA)' 8                                   
+ 000135 ISREDIT (TEMPLINE) = LINENUM .ZCSR                                      
+ 000136 /* WRITE LOOP IS BEGINNING                                              
+ 000137                                                                         
+ 000138 DO WHILE &TEMPLINE ¬= &CURRLINE                                         
+ 000139 /*  ISREDIT FIND NEXT '&STR(&VERBLINE)'                                 
+ 000140     ISREDIT FIND NEXT '&STR(&SECPARA)'                                  
+ 000141     IF &LASTCC EQ 0 THEN DO                                             
+ 000142     ISREDIT (TEMPLINE) = LINENUM .ZCSR                                  
+ 000143     SET X = &X + 1                                                      
+ 000144     END                                                                 
+ 000145     ELSE SET TEMPLINE  = &CURRLINE                                      
+ 000146 END                                                                     
+ 000147 /* WRITE LOOP IS ENDING                                                 
+ 000148                                                                         
+ 000149 SET OCCURANCE = &X                                                      
+ 000150                                                                         
+ 000151 /********************************************************************** 
+ 000152 /* IF THE SECTION/PARAGRAPH TO GO TO EXISTS, GO THERE AND SAVE THE    * 
+ 000153 /* "RETURN" INFORMATION.                                              * 
+ 000154 /********************************************************************** 
+ 000155 SET LENSTR = &LENGTH(&STR( &SECPARA))                                   
+ 000156 ISREDIT EXCLUDE ALL P'*' &COL1                                          
+ 000157 ISREDIT FIND FIRST ' &STR(&SECPARA)' &COL1 &EVAL(&COL1 + &LENSTR + 3) NX
+ 000158 IF &LASTCC = 0 THEN +                                                   
+ 000159     DO                                                                  
+ 000160         ISPEXEC VGET BCHLVL SHARED                                      
+ 000161         SET BCHLVL = &BCHLVL + 1                                        
+ 000162         SET BCHT&BCHLVL = &DISPLINE                                     
+ 000163         SET BCHV&BCHLVL = &STR(&VERBLINE)                               
+ 000164         SET BCHI&BCHLVL = &OCCURANCE                                    
+ 000165         ISREDIT (X,Y) = BOUNDS                                          
+ 000166         ISREDIT (LRECL) = LRECL                                         
+ 000167         SET BCHB&BCHLVL = &STR(&X &Y &LRECL)                            
+ 000168         ISPEXEC VPUT (BCHLVL BCHT&BCHLVL BCHB&BCHLVL +                  
+ 000169                       BCHV&BCHLVL BCHI&BCHLVL) SHARED                   
+ 000170         ISREDIT (LINE,CL) = CURSOR                                      
+ 000171         ISREDIT (X,Y) = DISPLAY_LINES                                   
+ 000172         IF &LINE > &X THEN +                                            
+ 000173             DO                                                          
+ 000174                 ISREDIT LOCATE &LINE                                    
+ 000175                 ISREDIT (X,Y) = DISPLAY_LINES                           
+ 000176             END                                                         
+ 000177         ISREDIT LABEL &X = .X                                           
+ 000178         ISREDIT LABEL &Y = .Y                                           
+ 000179         ISREDIT FIND FIRST ' GO ' &COL1 &COL2 .X .Y                     
+ 000180         ISREDIT (GOTO,NULL) = CURSOR                                    
+ 000181         ISREDIT FIND FIRST ' PERFORM ' &COL1 &COL2 .X .Y                
+ 000182         ISREDIT (PERFORM,NULL) = CURSOR                                 
+ 000183         ISREDIT FIND FIRST ' EXIT. ' &COL1 &COL2 .X .Y                  
+ 000184         IF &LASTCC > 0 THEN SET EXIT = &Y                               
+ 000185         ELSE ISREDIT (EXIT,NULL) = CURSOR                               
+ 000186         SET X = &LINE                                                   
+ 000187         IF &PERFORM > &LINE AND +                                       
+ 000188            &PERFORM < &EXIT THEN +                                      
+ 000189             SET X = &PERFORM                                            
+ 000190         IF (&GOTO > &LINE AND +                                         
+ 000191             &GOTO < &EXIT) AND +                                        
+ 000192            ((&PERFORM > &LINE AND +                                     
+ 000193              &GOTO < &PERFORM) OR +                                     
+ 000194             (&PERFORM = &LINE)) THEN +                                  
+ 000195             SET X = &GOTO                                               
+ 000196         ISREDIT RESET EXCLUDED                                          
+ 000197         ISREDIT LOCATE .X                                               
+ 000198         ISREDIT CURSOR = &X 1                                           
+ 000199     END                                                                 
+ 000200 ELSE +                                                                  
+ 000201     DO                                                                  
+ 000202         ISREDIT RESET EXCLUDED                                          
+ 000203         ISREDIT CURSOR = &CURRLINE 1                                    
+ 000204         ISREDIT LABEL .CURR = .ZCSR                                     
+ 000205         ISREDIT LOCATE &EVAL(&CURRLINE - &DISPLINE - 1)                 
+ 000206         ISREDIT FIND FIRST P'=' .CURR .CURR                             
+ 000207 /*      SET ZEDLMSG = &STR(&SECPARA NOT FOUND & SPELLING ? & COPY +     
+ 000208 /*                         MEMBER ?)                                    
+ 000209         SET ZEDLMSG = &STR(&SECPARA NOT FOUND)                          
+ 000210         ISPEXEC SETMSG MSG(UTLZ001)                                     
+ 000211     END                                                                 
+ 000212                                                                         
+ 000213                                                                         
+ 000214 EXIT                                                                    
+ 000215                                                                         
+ 000216 HELPSEC: +                                                              
+ 000217 WRITE                                                                   
+ 000218 WRITE         *** HELP FOR EDIT MACRO 'BRANCH' ***                      
+ 000219 WRITE                                                                   
+ 000220 WRITE THE BRANCH MACRO IS AN EDIT MACRO WHICH IS EXECUTABLE FROM AN EDIT
+ 000221 WRITE SESSION OF A COBOL OR COBOL2 PROGRAM.                             
+ 000222 WRITE                                                                   
+ 000223 WRITE THE BRANCH MACRO WILL ENABLE A USER WHO IS EDITING A COBOL PROGRAM
+ 000224 WRITE TO PLACE THE CURSOR ANYWHERE ON A LINE IN THE SOURCE CODE WHICH   
+ 000225 WRITE CONTAINS A 'PERFORM ' OR 'GO TO' STATEMENT.  BY DEFINING SINGLE PF
+ 000226 WRITE KEY WITH THE WORD 'BRANCH' THE KEY CAN BE PRESSED AND THE SCREEN  
+ 000227 WRITE WILL BRANCH DIRECTLY TO THE PARAGRAPH NAMED IN THE "PERFORM" OR   
+ 000228 WRITE "GO TO" STATEMENT.                                                
+ 000229 WRITE                                                                   
+ 000230 WRITE UPON ENTERING A COBOL PROGRAM FOR THE FIRST TIME, THE BRANCH PF   
+ 000231 WRITE KEY MAY BE PRESSED AND THE CURSOR WILL JUMP DIRECTLY TO THE       
+ 000232 WRITE PROCEDURE DIVISION.                                               
+ 000233 WRITE                                                                   
+ 000234 WRITE ONCE IN THE PROCDEURE DIVISION THE CURSOR SHOULD BE PLACED ON A   
+ 000235 WRITE LINE WHICH CONTAINS A PERFORM OR "GO TO" STATEMENT.  IF THERE IS  
+ 000236 WRITE NO PERFORM OR "GO TO" STATEMENT, A MESSAGE STATING THAT WILL BE   
+ 000237 WRITE DISPLAYED ON THE TOP RIGHT CORNER OF THE SCREEN.                  
+ 000238 WRITE                                                                   
+ 000239 WRITE MULTIPLE BRANCHES MAY BE STACKED UP TO A MAXIMUM OF 9999 BRANCHES.
+ 000240 WRITE THIS MEANS THAT A PERSON MAY BRANCH TO SECTION A, SEE A PERFORM   
+ 000241 WRITE AND BRANCH TO SECTION B.  ONCE FINISHED WITH B, A BRANCHBK MAY BE 
+ 000242 WRITE EXECUTED TO RETURN TO THE PERFORM STATEMENT IN SECTION A.  IF     
+ 000243 WRITE DESIRED ANOTHER BRANCHBK MAY BE EXECUTED TO RETURN TO THE         
+ 000244 WRITE STATEMENT WHICH PERFORMED SECTION A.                              
+ 000245 WRITE                                                                   
+ 000246 WRITE NOTE, EVERYTIME A BRANCH IS MADE TO THE PROCEDURE DIVISION FROM   
+ 000247 WRITE SOMEWHERE EARLIER IN THE PROGRAM THE BRANCH COUNTER IS ZEROED OUT 
+ 000248 WRITE AND THE COUNTING OF BRANCHES UP TO THE 9999 MAXIMUM BEGINS AGAIN. 
+ 000249 WRITE                                                                   
+ 000250 WRITE IF THERE HAS BEEN NO INITIAL BRANCH EXECUTED, AND BRANCHBK IS     
+ 000251 WRITE EXECUTED A MESSAGE STATING 'NO BRANCH BACK POINT' IS DISPLAYED.   
+ 000252 WRITE                                                                   
+ 000253 WRITE         *** END OF HELP *** NO PROCESSING PERFORMED ***           
+ 000254 FINISH: +                                                               
+ 000255 EXIT                                                                    
+                                                                                                                       
+   
