@@ -1,8 +1,4 @@
-   File  Edit  Edit_Settings  Menu  Utilities  Compilers  Test  Help            
- -------------------------------------------------------------------------------
- VIEW       ABCD.EFGH.IJKL(BRANCH) - 01.05                 Columns 00001 00072 
- Command ===>                                                  Scroll ===> CSR  
- ****** ***************************** Top of Data ******************************
+ 000000 /**** REXX Program to open all Branch and GO TO in COBOL Program  ***/ 
  000001 ISREDIT MACRO (HELP)                                                    
  000002 ISPEXEC CONTROL ERRORS RETURN                                           
  000003 /**** SET MESSAGE DISPLAY ON/OFF BASED ON THE DEBUG SWITCH ***/         
